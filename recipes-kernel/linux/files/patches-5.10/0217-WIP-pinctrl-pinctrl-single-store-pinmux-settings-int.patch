@@ -1,0 +1,118 @@
+From e18560e1c6623748fbe994a574d2a1399abc15c8 Mon Sep 17 00:00:00 2001
+From: Benedikt Niedermayr <benedikt.niedermayr@siemens.com>
+Date: Tue, 21 Feb 2023 15:22:47 +0100
+Subject: [PATCH 217/218] WIP: pinctrl: pinctrl-single: store pinmux settings
+ internal
+
+Signed-off-by: Benedikt Niedermayr <benedikt.niedermayr@siemens.com>
+---
+ drivers/pinctrl/pinctrl-single.c | 53 +++++++++++++++++++++++++++++---
+ 1 file changed, 48 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/pinctrl/pinctrl-single.c b/drivers/pinctrl/pinctrl-single.c
+index cd314a5305a2..fa47fbf1534c 100644
+--- a/drivers/pinctrl/pinctrl-single.c
++++ b/drivers/pinctrl/pinctrl-single.c
+@@ -38,6 +38,16 @@
+ #define DRIVER_NAME			"pinctrl-single"
+ #define PCS_OFF_DISABLED		~0U
+ 
++/**
++ * struct pcs_setting_mux - hold current mux settings per pin
++ * @func: 	selected pin function
++ * @group:	selected pin group
++ */
++struct pcs_setting_mux {
++	unsigned func;
++	unsigned group;
++};
++
+ /**
+  * struct pcs_func_vals - mux function register offset and value pair
+  * @reg:	register virtual address
+@@ -340,12 +350,11 @@ static int pcs_get_function(struct pinctrl_dev *pctldev, unsigned pin,
+ {
+ 	struct pcs_device *pcs = pinctrl_dev_get_drvdata(pctldev);
+ 	struct pin_desc *pdesc = pin_desc_get(pctldev, pin);
+-	const struct pinctrl_setting_mux *setting;
++	struct pcs_setting_mux *setting = pdesc->drv_data;
+ 	struct function_desc *function;
+ 	unsigned fselector;
+ 
+ 	/* If pin is not described in DTS & enabled, mux_setting is NULL. */
+-	setting = pdesc->mux_setting;
+ 	if (!setting)
+ 		return -ENOTSUPP;
+ 	fselector = setting->func;
+@@ -365,7 +374,9 @@ static int pcs_set_mux(struct pinctrl_dev *pctldev, unsigned fselector,
+ 	struct pcs_device *pcs;
+ 	struct function_desc *function;
+ 	struct pcs_function *func;
+-	int i;
++	int i, ret;
++	const unsigned *pins = NULL;
++	unsigned num_pins = 0;
+ 
+ 	pcs = pinctrl_dev_get_drvdata(pctldev);
+ 	/* If function mask is null, needn't enable it. */
+@@ -376,8 +387,32 @@ static int pcs_set_mux(struct pinctrl_dev *pctldev, unsigned fselector,
+ 	if (!func)
+ 		return -EINVAL;
+ 
+-	dev_dbg(pcs->dev, "enabling %s function%i\n",
+-		func->name, fselector);
++	/*
++	 * Last mux setting must be stored here as well.
++	 * Referring to proper pinconf requires the current pin function
++	 * to be known
++	 */
++	ret = pinctrl_generic_get_group_pins(pctldev, group, &pins, &num_pins);
++	if (ret && PCS_HAS_PINCONF) {
++		dev_err(pcs->dev, "Cannot store mux settings\n");
++		return ret;
++	}
++
++	for (i = 0; i < num_pins; i++) {
++		struct pcs_setting_mux *setting;
++		struct pin_desc *desc;
++
++		desc = pin_desc_get(pctldev, pins[i]);
++		if (!desc) {
++			dev_err(pcs->dev, "Unable to request pindesc for PIN%d\n",
++				pins[i]);
++			continue;
++		}
++
++		setting = desc->drv_data;
++		setting->func = fselector;
++		setting->group = group;
++	}
+ 
+ 	for (i = 0; i < func->nvals; i++) {
+ 		struct pcs_func_vals *vals;
+@@ -682,6 +717,7 @@ static int pcs_add_pin(struct pcs_device *pcs, unsigned int offset)
+ {
+ 	struct pcs_soc_data *pcs_soc = &pcs->socdata;
+ 	struct pinctrl_pin_desc *pin;
++	struct pcs_setting_mux *setting;
+ 	int i;
+ 
+ 	i = pcs->pins.cur;
+@@ -703,7 +739,14 @@ static int pcs_add_pin(struct pcs_device *pcs, unsigned int offset)
+ 		}
+ 	}
+ 
++
++	setting = devm_kzalloc(pcs->dev, sizeof(*setting), GFP_KERNEL);
++	if (!setting)
++		return -ENOMEM;
++
++
+ 	pin = &pcs->pins.pa[i];
++	pin->drv_data = setting;
+ 	pin->number = i;
+ 	pcs->pins.cur++;
+ 
+-- 
+2.25.1
+

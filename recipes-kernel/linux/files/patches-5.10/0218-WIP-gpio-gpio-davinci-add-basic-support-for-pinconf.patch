@@ -1,0 +1,29 @@
+From 730540fda4c95f1e8288c6f3b14310a682e03008 Mon Sep 17 00:00:00 2001
+From: Benedikt Niedermayr <benedikt.niedermayr@siemens.com>
+Date: Tue, 21 Feb 2023 15:46:35 +0100
+Subject: [PATCH 218/218] WIP: gpio: gpio-davinci: add basic support for
+ pinconf
+
+Use gpiochip_generic_config() as callback for setting the
+pin configuration.
+
+Signed-off-by: Benedikt Niedermayr <benedikt.niedermayr@siemens.com>
+---
+ drivers/gpio/gpio-davinci.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpio/gpio-davinci.c b/drivers/gpio/gpio-davinci.c
+index 6f2138503726..d8899c0161ec 100644
+--- a/drivers/gpio/gpio-davinci.c
++++ b/drivers/gpio/gpio-davinci.c
+@@ -247,6 +247,7 @@ static int davinci_gpio_probe(struct platform_device *pdev)
+ 	chips->chip.get = davinci_gpio_get;
+ 	chips->chip.direction_output = davinci_direction_out;
+ 	chips->chip.set = davinci_gpio_set;
++	chips->chip.set_config = gpiochip_generic_config;
+ 
+ 	chips->chip.ngpio = ngpio;
+ 	chips->chip.base = pdata->no_auto_base ? pdata->base : -1;
+-- 
+2.25.1
+
