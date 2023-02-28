@@ -1,0 +1,27 @@
+From 6ea8054d6b618a59c33c6db547a0a9c7ce59957d Mon Sep 17 00:00:00 2001
+From: Benedikt Niedermayr <benedikt.niedermayr@siemens.com>
+Date: Thu, 23 Feb 2023 13:31:11 +0100
+Subject: [PATCH 5/6] gpio-chardev: cleanup requested filehandle
+
+The filehanlde nees to be closed again.
+
+Signed-off-by: Benedikt Niedermayr <benedikt.niedermayr@siemens.com>
+---
+ src/gpio/gpio_chardev.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/gpio/gpio_chardev.c b/src/gpio/gpio_chardev.c
+index 2cd1596..b63e72f 100644
+--- a/src/gpio/gpio_chardev.c
++++ b/src/gpio/gpio_chardev.c
+@@ -277,6 +277,7 @@ mraa_get_chip_base_by_number(unsigned number)
+     }
+ 
+     free(path);
++    fclose(fh);
+     return res;
+ #endif
+ }
+-- 
+2.25.1
+

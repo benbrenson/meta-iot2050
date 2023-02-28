@@ -1,0 +1,90 @@
+From 57b57211348265c094912b1a70c34bf47d9467ec Mon Sep 17 00:00:00 2001
+From: Benedikt Niedermayr <benedikt.niedermayr@siemens.com>
+Date: Wed, 22 Feb 2023 13:01:04 +0100
+Subject: [PATCH 4/6] gpio-chardev: Fix bias settings for chardev
+
+The gpio chardev v1 API doesn't support gpio line requests where
+direction and value (e.g. out low, out high) where set in a single
+ioctl. This patch fixes this issue by splitting the requests into two
+consecutive calls.
+
+A gpio chardev v2 implementation should solve this as well since
+suitable flags for output and value would be available.
+
+Futhermore this patch adds support for MRAA_GPIO_STRONG and
+MRAA_GPIO_HIZ flags.
+
+Signed-off-by: Benedikt Niedermayr <benedikt.niedermayr@siemens.com>
+---
+ include/linux/gpio.h |  3 +++
+ src/gpio/gpio.c      | 26 ++++++++++++++++++++++++++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/include/linux/gpio.h b/include/linux/gpio.h
+index 8451032..0d11296 100644
+--- a/include/linux/gpio.h
++++ b/include/linux/gpio.h
+@@ -36,6 +36,9 @@ struct gpioline_info {
+ #define GPIOHANDLE_REQUEST_ACTIVE_LOW   (1UL << 2)
+ #define GPIOHANDLE_REQUEST_OPEN_DRAIN   (1UL << 3)
+ #define GPIOHANDLE_REQUEST_OPEN_SOURCE  (1UL << 4)
++#define GPIOHANDLE_REQUEST_BIAS_PULL_UP	(1UL << 5)
++#define GPIOHANDLE_REQUEST_BIAS_PULL_DOWN	(1UL << 6)
++#define GPIOHANDLE_REQUEST_BIAS_DISABLE	(1UL << 7)
+ 
+ struct gpiohandle_request {
+     __u32 lineoffsets[GPIOHANDLES_MAX];
+diff --git a/src/gpio/gpio.c b/src/gpio/gpio.c
+index b1c3d27..5a8d503 100644
+--- a/src/gpio/gpio.c
++++ b/src/gpio/gpio.c
+@@ -1119,6 +1119,18 @@ mraa_gpio_mode(mraa_gpio_context dev, mraa_gpio_mode_t mode)
+             case MRAA_GPIOD_OPEN_SOURCE:
+                 flags |= GPIOHANDLE_REQUEST_OPEN_SOURCE;
+                 break;
++            case MRAA_GPIO_PULLUP:
++                flags |= GPIOHANDLE_REQUEST_BIAS_PULL_UP;
++                flags |= (flags & GPIOLINE_FLAG_IS_OUT) ? GPIOHANDLE_REQUEST_OUTPUT : GPIOHANDLE_REQUEST_INPUT;
++                break;
++            case MRAA_GPIO_PULLDOWN:
++                flags |= GPIOHANDLE_REQUEST_BIAS_PULL_DOWN;
++                flags |= (flags & GPIOLINE_FLAG_IS_OUT) ? GPIOHANDLE_REQUEST_OUTPUT : GPIOHANDLE_REQUEST_INPUT;
++                break;
++            case MRAA_GPIO_STRONG:
++            case MRAA_GPIO_HIZ:
++                flags |= GPIOHANDLE_REQUEST_BIAS_DISABLE;
++                break;
+             default:
+                 return MRAA_ERROR_FEATURE_NOT_IMPLEMENTED;
+         }
+@@ -1207,6 +1219,8 @@ mraa_gpio_chardev_dir(mraa_gpio_context dev, mraa_gpio_dir_t dir)
+     }
+ 
+     switch (dir) {
++        case MRAA_GPIO_OUT_LOW:
++        case MRAA_GPIO_OUT_HIGH:
+         case MRAA_GPIO_OUT:
+             flags |= GPIOHANDLE_REQUEST_OUTPUT;
+             flags &= ~GPIOHANDLE_REQUEST_INPUT;
+@@ -1236,6 +1250,18 @@ mraa_gpio_chardev_dir(mraa_gpio_context dev, mraa_gpio_dir_t dir)
+         gpio_iter->gpiod_handle = line_handle;
+     }
+ 
++    switch (dir) {
++        case MRAA_GPIO_OUT_LOW:
++            mraa_gpio_write(dev, 0);
++            break;
++        case MRAA_GPIO_OUT_HIGH:
++            mraa_gpio_write(dev, 1);
++            break;
++        case MRAA_GPIO_OUT:
++        case MRAA_GPIO_IN:
++            break;
++    }
++
+     return MRAA_SUCCESS;
+ }
+ 
+-- 
+2.25.1
+

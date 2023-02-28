@@ -12,8 +12,15 @@ inherit dpkg
 DESCRIPTION = "Low Level Skeleton Library for Communication on GNU/Linux platforms"
 MAINTAINER = "le.jin@siemens.com"
 SRC_URI += "git://github.com/eclipse/mraa.git;protocol=https \
-            file://0001-gpio-Fix-JS-binding-regarding-interrupt-injections.patch \
-            file://rules"
+            file://0001-common-increase-pin-name-size.patch \
+            file://0002-iot2050-add-debugfs-pinmux-and-gpio-chardev-support.patch \
+            file://0003-gpio-chardev-init-compatibility.patch \
+            file://0004-gpio-chardev-Fix-bias-settings-for-chardev.patch \
+            file://0005-gpio-chardev-cleanup-requested-filehandle.patch \
+            file://0006-iot2050-cleanup-output-enable-gpios-after-usage.patch \
+            file://0007-gpio-Fix-JS-binding-regarding-interrupt-injections.patch \
+            file://rules \
+            "
 SRCREV = "8b1c54934e80edc2d36abac9d9c96fe1e01cb669"
 
 S = "${WORKDIR}/git"

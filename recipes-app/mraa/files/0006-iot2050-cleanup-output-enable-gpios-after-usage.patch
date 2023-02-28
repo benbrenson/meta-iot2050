@@ -1,0 +1,42 @@
+From 0ade09f3a0fb9a2c20f0d0f212ecb510c7408560 Mon Sep 17 00:00:00 2001
+From: Benedikt Niedermayr <benedikt.niedermayr@siemens.com>
+Date: Tue, 28 Feb 2023 12:45:56 +0100
+Subject: [PATCH 6/6] iot2050: cleanup output enable gpios after usage
+
+There is still a bug in gpio chardev implementation related to open
+gpiochip file descriptors leading to a "too many open files" error.
+
+This workaround fixes this issue
+
+Signed-off-by: Benedikt Niedermayr <benedikt.niedermayr@siemens.com>
+---
+ src/arm/siemens/iot2050.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/arm/siemens/iot2050.c b/src/arm/siemens/iot2050.c
+index f141d38..e16451a 100644
+--- a/src/arm/siemens/iot2050.c
++++ b/src/arm/siemens/iot2050.c
+@@ -239,13 +239,19 @@ iot2050_gpio_dir_pre(mraa_gpio_context dev, mraa_gpio_dir_t dir)
+             }
+             if(dir == MRAA_GPIO_IN) {
+                 if(mraa_gpio_write(output_en_pins[pin], !plat->pins[pin].gpio.complex_cap.output_en_high) != MRAA_SUCCESS) {
++                    mraa_gpio_close(output_en_pins[pin]);
++                    output_en_pins[pin] = NULL;
+                     goto failed;
+                 }
+             } else {
+                 if(mraa_gpio_write(output_en_pins[pin], plat->pins[pin].gpio.complex_cap.output_en_high) != MRAA_SUCCESS) {
++                    mraa_gpio_close(output_en_pins[pin]);
++                    output_en_pins[pin] = NULL;
+                     goto failed;
+                 }
+             }
++            mraa_gpio_close(output_en_pins[pin]);
++            output_en_pins[pin] = NULL;
+         }
+     }
+     return MRAA_SUCCESS;
+-- 
+2.25.1
+
